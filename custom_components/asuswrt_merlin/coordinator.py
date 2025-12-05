@@ -45,7 +45,9 @@ class AsusWrtMerlinDataUpdateCoordinator(DataUpdateCoordinator):
         # Read from options first (for reconfiguration), fallback to data
         self.seconds_until_device_away = entry.options.get(
             CONF_SECONDS_UNTIL_DEVICE_AWAY,
-            entry.data.get(CONF_SECONDS_UNTIL_DEVICE_AWAY, DEFAULT_SECONDS_UNTIL_DEVICE_AWAY),
+            entry.data.get(
+                CONF_SECONDS_UNTIL_DEVICE_AWAY, DEFAULT_SECONDS_UNTIL_DEVICE_AWAY
+            ),
         )
 
         self.last_update_time: datetime | None = None
@@ -57,7 +59,9 @@ class AsusWrtMerlinDataUpdateCoordinator(DataUpdateCoordinator):
         # Read from options first (for reconfiguration), fallback to data
         days_until_device_removal = entry.options.get(
             CONF_DAYS_UNTIL_DEVICE_REMOVAL,
-            entry.data.get(CONF_DAYS_UNTIL_DEVICE_REMOVAL, DEFAULT_DAYS_UNTIL_DEVICE_REMOVAL),
+            entry.data.get(
+                CONF_DAYS_UNTIL_DEVICE_REMOVAL, DEFAULT_DAYS_UNTIL_DEVICE_REMOVAL
+            ),
         )
         self._prune_threshold: timedelta = timedelta(days=days_until_device_removal)
         self._store: Store = Store(

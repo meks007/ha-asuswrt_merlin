@@ -63,8 +63,12 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Optional(CONF_SSH_KEY): str,
         vol.Optional(CONF_PORT, default=DEFAULT_PORT): int,
         # Prefer new key in the UI; legacy accepted if present in imported data
-        vol.Optional(CONF_SECONDS_UNTIL_DEVICE_AWAY, default=DEFAULT_SECONDS_UNTIL_DEVICE_AWAY): int,
-        vol.Optional(CONF_DAYS_UNTIL_DEVICE_REMOVAL, default=DEFAULT_DAYS_UNTIL_DEVICE_REMOVAL): int,
+        vol.Optional(
+            CONF_SECONDS_UNTIL_DEVICE_AWAY, default=DEFAULT_SECONDS_UNTIL_DEVICE_AWAY
+        ): int,
+        vol.Optional(
+            CONF_DAYS_UNTIL_DEVICE_REMOVAL, default=DEFAULT_DAYS_UNTIL_DEVICE_REMOVAL
+        ): int,
     }
 )
 
@@ -149,11 +153,15 @@ class OptionsFlow(config_entries.OptionsFlow):
         # Get current values from options (with fallback to data)
         current_seconds = self.config_entry.options.get(
             CONF_SECONDS_UNTIL_DEVICE_AWAY,
-            self.config_entry.data.get(CONF_SECONDS_UNTIL_DEVICE_AWAY, DEFAULT_SECONDS_UNTIL_DEVICE_AWAY),
+            self.config_entry.data.get(
+                CONF_SECONDS_UNTIL_DEVICE_AWAY, DEFAULT_SECONDS_UNTIL_DEVICE_AWAY
+            ),
         )
         current_days = self.config_entry.options.get(
             CONF_DAYS_UNTIL_DEVICE_REMOVAL,
-            self.config_entry.data.get(CONF_DAYS_UNTIL_DEVICE_REMOVAL, DEFAULT_DAYS_UNTIL_DEVICE_REMOVAL),
+            self.config_entry.data.get(
+                CONF_DAYS_UNTIL_DEVICE_REMOVAL, DEFAULT_DAYS_UNTIL_DEVICE_REMOVAL
+            ),
         )
 
         options_schema = vol.Schema(
