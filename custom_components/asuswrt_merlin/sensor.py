@@ -305,10 +305,16 @@ class _AccumulatingWanCounterSensor(AsusWrtMerlinSensorBase, RestoreEntity):
     ) -> None:
         super().__init__(coordinator, entry)
         self._value_gb: float | None = None
-        self._last_period_marker: str | None = None
+        # Initialize to current period to prevent reset during early updates
+        # This will be overwritten by async_added_to_hass if there's a saved state
+        self._last_period_marker: str | None = None  # Set after self._period exists
+        self._last_reset: datetime | None = None
         self._attr_native_unit_of_measurement = "GB"
         self._attr_device_class = SensorDeviceClass.DATA_SIZE
-        self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+        self._attr_state_class = SensorStateClass.TOTAL
+        # Now that _period is available (from subclass), initialize the marker
+        self._last_period_marker = self._current_period_marker()
+        self._last_reset = self._get_period_start_datetime()
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -321,9 +327,27 @@ class _AccumulatingWanCounterSensor(AsusWrtMerlinSensorBase, RestoreEntity):
         else:
             self._value_gb = 0.0
 
-        # Restore last period marker
+        # Restore last period marker and last reset
         if last_state and last_state.attributes:
             self._last_period_marker = last_state.attributes.get("period_marker")
+            # If period_marker wasn't saved, initialize to current period to prevent reset
+            if self._last_period_marker is None:
+                self._last_period_marker = self._current_period_marker()
+
+            # Try to restore last_reset from attributes
+            last_reset_str = last_state.attributes.get("last_reset")
+            if last_reset_str:
+                try:
+                    self._last_reset = datetime.fromisoformat(last_reset_str)
+                except (TypeError, ValueError):
+                    self._last_reset = self._get_period_start_datetime()
+            else:
+                # If not available, calculate based on current period
+                self._last_reset = self._get_period_start_datetime()
+        else:
+            # Initialize for current period
+            self._last_period_marker = self._current_period_marker()
+            self._last_reset = self._get_period_start_datetime()
 
         self.async_on_remove(
             self.coordinator.async_add_listener(self._handle_coordinator_update)
@@ -334,12 +358,20 @@ class _AccumulatingWanCounterSensor(AsusWrtMerlinSensorBase, RestoreEntity):
         return round(self._value_gb, 3) if self._value_gb is not None else None
 
     @property
+    def last_reset(self) -> datetime | None:
+        """Return the time when the counter was last reset."""
+        return self._last_reset
+
+    @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {
+        attrs = {
             "period": self._period,
             "direction": self._direction,
             "period_marker": self._current_period_marker(),
         }
+        if self._last_reset:
+            attrs["last_reset"] = self._last_reset.isoformat()
+        return attrs
 
     def _current_period_marker(self) -> str:
         now = datetime.now()
@@ -350,11 +382,24 @@ class _AccumulatingWanCounterSensor(AsusWrtMerlinSensorBase, RestoreEntity):
         # yearly
         return now.strftime("%Y")
 
+    def _get_period_start_datetime(self) -> datetime:
+        """Get the datetime when the current period started."""
+        now = datetime.now()
+        if self._period == "daily":
+            # Midnight of current day
+            return now.replace(hour=0, minute=0, second=0, microsecond=0)
+        if self._period == "monthly":
+            # Midnight of first day of current month
+            return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # yearly - Midnight of January 1st of current year
+        return now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+
     def _maybe_reset_for_new_period(self) -> None:
         marker = self._current_period_marker()
         if self._last_period_marker != marker:
             self._value_gb = 0.0
             self._last_period_marker = marker
+            self._last_reset = self._get_period_start_datetime()
 
     def _handle_coordinator_update(self) -> None:
         try:
