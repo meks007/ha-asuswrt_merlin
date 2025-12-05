@@ -15,9 +15,11 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
 from .const import (
-    CONF_SECONDS_UNTIL_AWAY,
+    CONF_DAYS_UNTIL_DEVICE_REMOVAL,
+    CONF_SECONDS_UNTIL_DEVICE_AWAY,
     CONF_SSH_KEY,
-    DEFAULT_SECONDS_UNTIL_AWAY,
+    DEFAULT_DAYS_UNTIL_DEVICE_REMOVAL,
+    DEFAULT_SECONDS_UNTIL_DEVICE_AWAY,
     DEFAULT_PORT,
     DOMAIN,
 )
@@ -61,7 +63,8 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Optional(CONF_SSH_KEY): str,
         vol.Optional(CONF_PORT, default=DEFAULT_PORT): int,
         # Prefer new key in the UI; legacy accepted if present in imported data
-        vol.Optional(CONF_SECONDS_UNTIL_AWAY, default=DEFAULT_SECONDS_UNTIL_AWAY): int,
+        vol.Optional(CONF_SECONDS_UNTIL_DEVICE_AWAY, default=DEFAULT_SECONDS_UNTIL_DEVICE_AWAY): int,
+        vol.Optional(CONF_DAYS_UNTIL_DEVICE_REMOVAL, default=DEFAULT_DAYS_UNTIL_DEVICE_REMOVAL): int,
     }
 )
 
@@ -96,6 +99,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @staticmethod
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        """Get the options flow for this handler."""
+        return OptionsFlow(config_entry)
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -122,6 +130,46 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
+
+
+class OptionsFlow(config_entries.OptionsFlow):
+    """Handle options flow for AsusWrt-Merlin."""
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        # Get current values from options (with fallback to data)
+        current_seconds = self.config_entry.options.get(
+            CONF_SECONDS_UNTIL_DEVICE_AWAY,
+            self.config_entry.data.get(CONF_SECONDS_UNTIL_DEVICE_AWAY, DEFAULT_SECONDS_UNTIL_DEVICE_AWAY),
+        )
+        current_days = self.config_entry.options.get(
+            CONF_DAYS_UNTIL_DEVICE_REMOVAL,
+            self.config_entry.data.get(CONF_DAYS_UNTIL_DEVICE_REMOVAL, DEFAULT_DAYS_UNTIL_DEVICE_REMOVAL),
+        )
+
+        options_schema = vol.Schema(
+            {
+                vol.Optional(
+                    CONF_SECONDS_UNTIL_DEVICE_AWAY,
+                    default=current_seconds,
+                ): int,
+                vol.Optional(
+                    CONF_DAYS_UNTIL_DEVICE_REMOVAL,
+                    default=current_days,
+                ): int,
+            }
+        )
+
+        return self.async_show_form(step_id="init", data_schema=options_schema)
 
 
 class CannotConnect(HomeAssistantError):

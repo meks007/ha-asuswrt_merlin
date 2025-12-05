@@ -144,7 +144,7 @@ class AsusWrtMerlinDeviceTracker(ScannerEntity, RestoreEntity):
                     if isinstance(last_seen, str):
                         last_seen = datetime.fromisoformat(last_seen)
                     time_diff = datetime.now() - last_seen
-                    if time_diff.total_seconds() < self.coordinator.seconds_until_away:
+                    if time_diff.total_seconds() < self.coordinator.seconds_until_device_away:
                         return True
 
                 # If last_seen is None, device is not connected

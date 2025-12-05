@@ -130,7 +130,7 @@ class AsusWrtMerlinRouterSensor(AsusWrtMerlinSensorBase):
                     if isinstance(last_seen, str):
                         last_seen = datetime.fromisoformat(last_seen)
                     time_diff = datetime.now() - last_seen
-                    if time_diff.total_seconds() < self.coordinator.seconds_until_away:
+                    if time_diff.total_seconds() < self.coordinator.seconds_until_device_away:
                         connected_count += 1
 
         return connected_count
@@ -170,7 +170,7 @@ class AsusWrtMerlinRouterSensor(AsusWrtMerlinSensorBase):
 
         # Count devices by status
         active_count = 0  # Currently in ARP table (actively communicating)
-        recently_seen_count = 0  # Not in ARP but seen within seconds_until_away time
+        recently_seen_count = 0  # Not in ARP but seen within seconds_until_device_away time
         offline_count = 0
 
         for device in self.coordinator.data:
@@ -187,7 +187,7 @@ class AsusWrtMerlinRouterSensor(AsusWrtMerlinSensorBase):
                     if isinstance(last_seen, str):
                         last_seen = datetime.fromisoformat(last_seen)
                     time_diff = datetime.now() - last_seen
-                    if time_diff.total_seconds() < self.coordinator.seconds_until_away:
+                    if time_diff.total_seconds() < self.coordinator.seconds_until_device_away:
                         recently_seen_count += 1
                     else:
                         offline_count += 1

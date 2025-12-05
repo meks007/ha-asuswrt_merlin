@@ -17,7 +17,7 @@ This is separate from the official Home Assistant integration, as the official i
 * Fetches connected devices
 * Creates device tracker entities that are disabled by default
 * Configurable SSH authentication (password or SSH key)
-* Configurable "consider home" timeout
+* Configurable "consider home" timeout & delete inactive devices after
 * Automatic device discovery based on DHCP leases and ARP table
 
 ## Installation

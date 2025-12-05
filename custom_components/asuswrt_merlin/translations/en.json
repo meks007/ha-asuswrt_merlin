@@ -10,7 +10,8 @@
           "password": "Password",
           "ssh_key": "SSH private key file path (optional, leave empty for password auth)",
           "port": "SSH port",
-          "seconds_until_away": "Seconds until marking away"
+          "seconds_until_device_away": "Seconds until marking a device away",
+          "days_until_device_removal": "Days before removing inactive devices"
         }
       }
     },
@@ -28,7 +29,8 @@
       "init": {
         "title": "AsusWrt-Merlin Options",
         "data": {
-          "seconds_until_away": "Seconds until marking away"
+          "seconds_until_device_away": "Seconds until marking a device away",
+          "days_until_device_removal": "Days before removing inactive devices"
         }
       }
     }

@@ -17,8 +17,10 @@ from .const import (
     ATTR_LAST_SEEN,
     ATTR_IP,
     ATTR_HOSTNAME,
-    CONF_SECONDS_UNTIL_AWAY,
-    DEFAULT_SECONDS_UNTIL_AWAY,
+    CONF_DAYS_UNTIL_DEVICE_REMOVAL,
+    CONF_SECONDS_UNTIL_DEVICE_AWAY,
+    DEFAULT_DAYS_UNTIL_DEVICE_REMOVAL,
+    DEFAULT_SECONDS_UNTIL_DEVICE_AWAY,
     DOMAIN,
 )
 from .ssh_client import AsusWrtSSHClient
@@ -40,9 +42,10 @@ class AsusWrtMerlinDataUpdateCoordinator(DataUpdateCoordinator):
             password=entry.data.get("password"),
             ssh_key=entry.data.get("ssh_key"),
         )
-        self.seconds_until_away = entry.data.get(
-            CONF_SECONDS_UNTIL_AWAY,
-            DEFAULT_SECONDS_UNTIL_AWAY,
+        # Read from options first (for reconfiguration), fallback to data
+        self.seconds_until_device_away = entry.options.get(
+            CONF_SECONDS_UNTIL_DEVICE_AWAY,
+            entry.data.get(CONF_SECONDS_UNTIL_DEVICE_AWAY, DEFAULT_SECONDS_UNTIL_DEVICE_AWAY),
         )
 
         self.last_update_time: datetime | None = None
@@ -50,7 +53,13 @@ class AsusWrtMerlinDataUpdateCoordinator(DataUpdateCoordinator):
         self.new_devices_callback = None
         self.mac_last_seen: dict[str, datetime] = {}
         self.mac_hostname: dict[str, str] = {}
-        self._prune_threshold: timedelta = timedelta(days=30)
+        # Configurable device removal threshold (defaults to 30 days)
+        # Read from options first (for reconfiguration), fallback to data
+        days_until_device_removal = entry.options.get(
+            CONF_DAYS_UNTIL_DEVICE_REMOVAL,
+            entry.data.get(CONF_DAYS_UNTIL_DEVICE_REMOVAL, DEFAULT_DAYS_UNTIL_DEVICE_REMOVAL),
+        )
+        self._prune_threshold: timedelta = timedelta(days=days_until_device_removal)
         self._store: Store = Store(
             hass,
             version=1,
@@ -173,7 +182,7 @@ class AsusWrtMerlinDataUpdateCoordinator(DataUpdateCoordinator):
             # Persist last seen map
             await self._async_save_persisted_last_seen()
             # Ensure disconnected devices carry a last_seen equal to their last seen time
-            # so that trackers can apply the grace period (seconds_until_away)
+            # so that trackers can apply the grace period (seconds_until_device_away)
             try:
                 if devices:
                     for device in devices:
@@ -328,6 +337,7 @@ class AsusWrtMerlinDataUpdateCoordinator(DataUpdateCoordinator):
                         )
                         registry.async_remove(entity_entry.entity_id)
                         self.known_devices.discard(mac)
+                        self.mac_last_seen.pop(mac, None)
                         self.mac_hostname.pop(mac, None)
                 except Exception:
                     # Continue pruning other entities even if one fails

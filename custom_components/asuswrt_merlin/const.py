@@ -10,11 +10,14 @@ CONF_SSH_KEY = "ssh_key"
 CONF_PORT = "port"
 CONF_MODE = "mode"
 # Configuration option: seconds a device can be inactive before marked away
-CONF_SECONDS_UNTIL_AWAY = "seconds_until_away"
+CONF_SECONDS_UNTIL_DEVICE_AWAY = "seconds_until_device_away"
+# Configuration option: days before removing inactive devices from registry
+CONF_DAYS_UNTIL_DEVICE_REMOVAL = "days_until_device_removal"
 
 # Default values
 DEFAULT_PORT = 22
-DEFAULT_SECONDS_UNTIL_AWAY = 180
+DEFAULT_SECONDS_UNTIL_DEVICE_AWAY = 180
+DEFAULT_DAYS_UNTIL_DEVICE_REMOVAL = 30
 DEFAULT_MODE = "ssh"
 
 # SSH commands
