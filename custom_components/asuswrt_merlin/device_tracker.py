@@ -209,16 +209,25 @@ class AsusWrtMerlinDeviceTracker(ScannerEntity, RestoreEntity):
             attrs[ATTR_IP] = self.ip_address
 
         # Expose last_seen as ISO 8601 string when known
+        last_seen = None
+        # First check if device is in current coordinator data
         if self.coordinator.data:
             for device in self.coordinator.data:
                 if device[ATTR_MAC] == self._device[ATTR_MAC]:
                     last_seen = device.get(ATTR_LAST_SEEN)
-                    if isinstance(last_seen, datetime):
-                        attrs[ATTR_LAST_SEEN] = last_seen.isoformat()
-                    elif isinstance(last_seen, str):
-                        # Assume already in ISO format
-                        attrs[ATTR_LAST_SEEN] = last_seen
                     break
+
+        # If not in current data, check the persistent mac_last_seen cache
+        if last_seen is None:
+            last_seen = self.coordinator.mac_last_seen.get(self._device[ATTR_MAC])
+
+        # Add last_seen to attributes if available
+        if last_seen is not None:
+            if isinstance(last_seen, datetime):
+                attrs[ATTR_LAST_SEEN] = last_seen.isoformat()
+            elif isinstance(last_seen, str):
+                # Assume already in ISO format
+                attrs[ATTR_LAST_SEEN] = last_seen
 
         return attrs
 
