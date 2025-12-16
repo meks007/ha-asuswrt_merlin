@@ -214,52 +214,6 @@ class AsusWrtMerlinRouterSensor(AsusWrtMerlinSensorBase):
         return attrs
 
 
-class AsusWrtMerlinWanTotalDownloadSensor(AsusWrtMerlinSensorBase):
-    """Sensor for total WAN download in GB."""
-
-    def __init__(
-        self, coordinator: AsusWrtMerlinDataUpdateCoordinator, entry: ConfigEntry
-    ) -> None:
-        super().__init__(coordinator, entry)
-        self._attr_name = "WAN total downloaded"
-        self._attr_unique_id = f"{entry.entry_id}_wan_total_download_gb"
-        self._attr_icon = "mdi:download"
-        self._attr_native_unit_of_measurement = "GB"
-        self._attr_device_class = SensorDeviceClass.DATA_SIZE
-        self._attr_state_class = SensorStateClass.TOTAL_INCREASING
-
-    @property
-    def native_value(self) -> float | None:
-        _ensure_wan_stats_updated(self.coordinator)
-        value = _WAN_CACHE.get("total_download_gb")
-        if value is None:
-            return None
-        return round(value, 3)
-
-
-class AsusWrtMerlinWanTotalUploadSensor(AsusWrtMerlinSensorBase):
-    """Sensor for total WAN upload in GB."""
-
-    def __init__(
-        self, coordinator: AsusWrtMerlinDataUpdateCoordinator, entry: ConfigEntry
-    ) -> None:
-        super().__init__(coordinator, entry)
-        self._attr_name = "WAN total uploaded"
-        self._attr_unique_id = f"{entry.entry_id}_wan_total_upload_gb"
-        self._attr_icon = "mdi:upload"
-        self._attr_native_unit_of_measurement = "GB"
-        self._attr_device_class = SensorDeviceClass.DATA_SIZE
-        self._attr_state_class = SensorStateClass.TOTAL_INCREASING
-
-    @property
-    def native_value(self) -> float | None:
-        _ensure_wan_stats_updated(self.coordinator)
-        value = _WAN_CACHE.get("total_upload_gb")
-        if value is None:
-            return None
-        return round(value, 3)
-
-
 class AsusWrtMerlinWanDownloadSpeedSensor(AsusWrtMerlinSensorBase):
     """Sensor for current WAN download speed in Mbps."""
 
@@ -305,7 +259,7 @@ class AsusWrtMerlinWanUploadSpeedSensor(AsusWrtMerlinSensorBase):
 class _AccumulatingWanCounterSensor(AsusWrtMerlinSensorBase, RestoreEntity):
     """Base for daily/monthly accumulating WAN counters that persist restarts."""
 
-    _period: str  # "daily" or "monthly"
+    _period: str | None  # "daily", "monthly", "yearly", or None (total)
     _direction: str  # "download" or "upload"
 
     def __init__(
@@ -387,11 +341,14 @@ class _AccumulatingWanCounterSensor(AsusWrtMerlinSensorBase, RestoreEntity):
             return now.strftime("%Y-%m-%d")
         if self._period == "monthly":
             return now.strftime("%Y-%m")
-        # yearly
-        return now.strftime("%Y")
+        if self._period == "yearly":
+            return now.strftime("%Y")
+        return "total"
 
-    def _get_period_start_datetime(self) -> datetime:
+    def _get_period_start_datetime(self) -> datetime | None:
         """Get the datetime when the current period started."""
+        if self._period is None:
+            return None
         now = datetime.now()
         if self._period == "daily":
             # Midnight of current day
@@ -488,4 +445,34 @@ class AsusWrtMerlinWanYearlyUploadSensor(_AccumulatingWanCounterSensor):
         super().__init__(coordinator, entry)
         self._attr_name = "WAN yearly uploaded"
         self._attr_unique_id = f"{entry.entry_id}_wan_yearly_upload_gb"
+        self._attr_icon = "mdi:upload"
+
+
+class AsusWrtMerlinWanTotalDownloadSensor(_AccumulatingWanCounterSensor):
+    """Sensor for total WAN download in GB (persistent)."""
+
+    _period = None
+    _direction = "download"
+
+    def __init__(
+        self, coordinator: AsusWrtMerlinDataUpdateCoordinator, entry: ConfigEntry
+    ) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_name = "WAN total downloaded"
+        self._attr_unique_id = f"{entry.entry_id}_wan_total_download_gb"
+        self._attr_icon = "mdi:download"
+
+
+class AsusWrtMerlinWanTotalUploadSensor(_AccumulatingWanCounterSensor):
+    """Sensor for total WAN upload in GB (persistent)."""
+
+    _period = None
+    _direction = "upload"
+
+    def __init__(
+        self, coordinator: AsusWrtMerlinDataUpdateCoordinator, entry: ConfigEntry
+    ) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_name = "WAN total uploaded"
+        self._attr_unique_id = f"{entry.entry_id}_wan_total_upload_gb"
         self._attr_icon = "mdi:upload"
