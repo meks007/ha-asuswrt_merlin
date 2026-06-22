@@ -54,7 +54,6 @@ class AsusWrtSSHClient:
         """Connect to the router via SSH."""
         self.client = paramiko.SSHClient()
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
         try:
             if self.ssh_key:
                 # Use SSH key authentication
@@ -204,49 +203,58 @@ class AsusWrtSSHClient:
         return None
 
     def get_connected_devices(self) -> list[dict[str, Any]]:
-        """Get list of connected devices from the router."""
-        devices = []
+        """Get list of connected devices from the router.
 
+        The ARP table is the primary and authoritative source of device
+        discovery.  All entries with flag 0x2 (reachable) are treated as
+        currently connected devices.
+
+        DHCP leases are used as optional enrichment only: when a lease
+        entry matches an ARP MAC, its hostname is preferred over the
+        MAC-derived fallback.  If the lease file is absent or unreadable
+        the integration continues with ARP data alone.
+        """
         try:
-            # Get DHCP leases
-            dhcp_output = self._execute_command(CMD_DEVICES)
-            dhcp_devices = self._parse_dhcp_leases(dhcp_output)
-
-            # Get ARP table
+            # --- Primary source: ARP table ---
             arp_output = self._execute_command(CMD_ARP)
             arp_devices = self._parse_arp_table(arp_output)
+            _LOGGER.debug("ARP table: %d reachable entries", len(arp_devices))
 
-            # Merge DHCP and ARP data
-            for dhcp_device in dhcp_devices:
-                mac = dhcp_device[ATTR_MAC].upper()
-
-                # Check if device is in ARP table (active)
-                is_connected = any(
-                    arp_device[ATTR_MAC].upper() == mac for arp_device in arp_devices
-                )
-
-                device = {
+            # Build a working dict keyed by upper-cased MAC for O(1) access
+            mac_to_device: dict[str, dict[str, Any]] = {}
+            for arp in arp_devices:
+                mac = arp[ATTR_MAC].upper()
+                mac_to_device[mac] = {
                     ATTR_MAC: mac,
-                    ATTR_HOSTNAME: dhcp_device[ATTR_HOSTNAME],
-                    ATTR_IP: dhcp_device[ATTR_IP],
-                    "is_connected": is_connected,
+                    ATTR_IP: arp[ATTR_IP],
+                    ATTR_HOSTNAME: f"device_{mac.replace(':', '-')}",  # fallback
+                    ATTR_LAST_SEEN: datetime.now(),
+                    "is_connected": True,
                 }
 
-                # Only update last_seen for devices that are actually connected (in ARP table)
-                if is_connected:
-                    device[ATTR_LAST_SEEN] = datetime.now()
-                else:
-                    # For devices not in ARP table, we don't set last_seen here
-                    # The coordinator will backfill the last_seen using its mac_last_seen map
-                    device[ATTR_LAST_SEEN] = None
+            # --- Optional enrichment: DHCP leases ---
+            try:
+                dhcp_output = self._execute_command(CMD_DEVICES)
+                dhcp_devices = self._parse_dhcp_leases(dhcp_output)
+                _LOGGER.debug("DHCP leases: %d entries", len(dhcp_devices))
+                for dhcp in dhcp_devices:
+                    mac = dhcp[ATTR_MAC].upper()
+                    if mac in mac_to_device:
+                        # Enrich the ARP-discovered entry with the DHCP hostname
+                        mac_to_device[mac][ATTR_HOSTNAME] = dhcp[ATTR_HOSTNAME]
+                    # DHCP-only entries (device has a lease but is not in the ARP
+                    # table) are intentionally ignored: if the device is not
+                    # reachable on the network right now, the coordinator's
+                    # mac_last_seen cache will handle the grace-period logic.
+            except Exception as dhcp_ex:
+                _LOGGER.debug(
+                    "DHCP lease enrichment skipped (file may not exist): %s", dhcp_ex
+                )
 
-                devices.append(device)
-
-            _LOGGER.debug("Found %d devices", len(devices))
-            connected_count = sum(
-                1 for device in devices if device.get("is_connected", False)
+            devices = list(mac_to_device.values())
+            _LOGGER.debug(
+                "Found %d connected devices", len(devices)
             )
-            _LOGGER.debug("Found %d connected devices (in ARP table)", connected_count)
             return devices
 
         except Exception as ex:
@@ -296,7 +304,6 @@ class AsusWrtSSHClient:
                     {
                         ATTR_IP: parts[0],
                         ATTR_MAC: parts[3],
-                        ATTR_HOSTNAME: f"device_{parts[3].replace(':', '-')}",
                     }
                 )
 
