@@ -1,5 +1,4 @@
 """Config flow for AsusWrt-Merlin integration."""
-
 from __future__ import annotations
 
 import logging
@@ -33,10 +32,8 @@ async def validate_ssh_key_file(hass: HomeAssistant, value: str) -> str:
     """Validate SSH key file path."""
     if not value:
         return value
-
     if not os.path.exists(value):
         raise vol.Invalid(f"SSH key file not found: {value}")
-
     if not os.path.isfile(value):
         raise vol.Invalid(f"SSH key path is not a file: {value}")
 
@@ -52,7 +49,6 @@ async def validate_ssh_key_file(hass: HomeAssistant, value: str) -> str:
         await hass.async_add_executor_job(_check_file_readable)
     except vol.Invalid:
         raise
-
     return value
 
 
@@ -88,7 +84,6 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         password=data.get(CONF_PASSWORD),
         ssh_key=ssh_key,
     )
-
     try:
         await hass.async_add_executor_job(ssh_client.connect)
     except Exception as ex:
@@ -119,7 +114,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         errors = {}
-
         try:
             info = await validate_input(self.hass, user_input)
         except vol.Invalid as ex:
@@ -140,10 +134,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class OptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for AsusWrt-Merlin."""
 
-    def __init__(self, config_entry: ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
-
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -155,13 +145,15 @@ class OptionsFlow(config_entries.OptionsFlow):
         current_seconds = self.config_entry.options.get(
             CONF_SECONDS_UNTIL_DEVICE_AWAY,
             self.config_entry.data.get(
-                CONF_SECONDS_UNTIL_DEVICE_AWAY, DEFAULT_SECONDS_UNTIL_DEVICE_AWAY
+                CONF_SECONDS_UNTIL_DEVICE_AWAY,
+                DEFAULT_SECONDS_UNTIL_DEVICE_AWAY,
             ),
         )
         current_days = self.config_entry.options.get(
             CONF_DAYS_UNTIL_DEVICE_REMOVAL,
             self.config_entry.data.get(
-                CONF_DAYS_UNTIL_DEVICE_REMOVAL, DEFAULT_DAYS_UNTIL_DEVICE_REMOVAL
+                CONF_DAYS_UNTIL_DEVICE_REMOVAL,
+                DEFAULT_DAYS_UNTIL_DEVICE_REMOVAL,
             ),
         )
 
